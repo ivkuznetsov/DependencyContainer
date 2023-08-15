@@ -6,8 +6,8 @@ import PackageDescription
 let package = Package(
     name: "DependencyContainer",
     platforms: [
-        .macOS(.v12),
-        .iOS(.v15)
+        .macOS(.v10_15),
+        .iOS(.v14)
     ],
     products: [
         .library(name: "DependencyContainer",
