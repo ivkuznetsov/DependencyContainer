@@ -72,12 +72,12 @@ public enum DI {
         }
     }
     
-    ///Property wrapper with a reference to an 'ObservableObject' service in DI.Container.
+    ///Property wrapper with a reference to an 'any ObservableObject' service in DI.Container.
     ///It should be used only in SwiftUI view. The change in service triggers the view update.
     ///The sub-service can be referenced by using a KeyPath.
     ///The size is 17 bytes.
     @propertyWrapper
-    public struct Observed<Service>: DynamicProperty {
+    public struct ObservedAny<Service>: DynamicProperty {
         
         @StateObject private var wrapper: ObservableObjectWrapper<Service>
         
@@ -98,16 +98,40 @@ public enum DI {
         public var projectedValue: Binding<Service> { $wrapper.observed }
     }
     
-    ///Property wrapper with a refernce to an 'ObservableObject' service in DI.Container.
+    ///Property wrapper with a reference to an 'ObservableObject' service in DI.Container.
+    ///It should be used only in SwiftUI view. The change in service triggers the view update.
+    ///The sub-service can be referenced by using a KeyPath.
+    ///The size is 17 bytes.
+    @propertyWrapper
+    public struct Observed<Service: ObservableObject>: DynamicProperty {
+        
+        @StateObject private var service: Service
+        
+        public var wrappedValue: Service { service }
+        
+        public init(wrappedValue value: Service) {
+            _service = .init(wrappedValue: value)
+        }
+        
+        public init(_ key: Key<Service>) {
+            _service = .init(wrappedValue: Container.resolve(key))
+        }
+        
+        public init<ServiceContainer>(_ key: Key<ServiceContainer>, _ keyPath: KeyPath<ServiceContainer, Service>) {
+            _service = .init(wrappedValue: Container.resolveObservable(key).observed[keyPath: keyPath])
+        }
+    }
+    
+    ///Property wrapper with a refernce to an 'any ObservableObject' service in DI.Container.
     ///It should be used in another 'ObservableObject'. An update of the service triggers objectWillChange of enoclosing instance.
     ///The sub-service can be referenced by using a KeyPath.
     @propertyWrapper
-    public final class RePublished<Service> {
+    public final class RePublishedAny<Service> {
         
         public static subscript<T: ObservableObject>(
             _enclosingInstance instance: T,
             wrapped wrappedKeyPath: ReferenceWritableKeyPath<T, Service>,
-            storage storageKeyPath: ReferenceWritableKeyPath<T, RePublished>) -> Service {
+            storage storageKeyPath: ReferenceWritableKeyPath<T, RePublishedAny>) -> Service {
             get {
                 if instance[keyPath: storageKeyPath].observer == nil {
                     instance[keyPath: storageKeyPath].setupObserver(instance)
@@ -125,9 +149,55 @@ public enum DI {
 
         private var observer: AnyCancellable?
         
-        @available(*, unavailable,
-            message: "This property wrapper can only be applied to classes"
-        )
+        @available(*, unavailable, message: "This property wrapper can only be applied to classes")
+        public var wrappedValue: Service {
+            get { fatalError() }
+            set { fatalError() }
+        }
+        
+        private var value: Service
+        
+        public init(wrappedValue value: Service) {
+            self.value = value
+        }
+        
+        public init<ServiceContainer>(_ key: Key<ServiceContainer>, _ keyPath: KeyPath<ServiceContainer, Service>) {
+            value = Container.resolveObservable(key).observed[keyPath: keyPath]
+        }
+        
+        public init(_ key: Key<Service>) {
+            value = Container.resolve(key)
+        }
+    }
+    
+    ///Property wrapper with a refernce to an 'ObservableObject' service in DI.Container.
+    ///It should be used in another 'ObservableObject'. An update of the service triggers objectWillChange of enoclosing instance.
+    ///The sub-service can be referenced by using a KeyPath.
+    @propertyWrapper
+    public final class RePublished<Service: ObservableObject> {
+        
+        public static subscript<T: ObservableObject>(
+            _enclosingInstance instance: T,
+            wrapped wrappedKeyPath: ReferenceWritableKeyPath<T, Service>,
+            storage storageKeyPath: ReferenceWritableKeyPath<T, RePublished>) -> Service {
+            get {
+                if instance[keyPath: storageKeyPath].observer == nil {
+                    instance[keyPath: storageKeyPath].setupObserver(instance)
+                }
+                return instance[keyPath: storageKeyPath].value
+            }
+            set { }
+        }
+        
+        private func setupObserver<T: ObservableObject>(_ instance: T) {
+            observer = value.sink { [weak instance] in
+                (instance?.objectWillChange as? any Publisher as? ObservableObjectPublisher)?.send()
+            }
+        }
+
+        private var observer: AnyCancellable?
+        
+        @available(*, unavailable, message: "This property wrapper can only be applied to classes")
         public var wrappedValue: Service {
             get { fatalError() }
             set { fatalError() }
