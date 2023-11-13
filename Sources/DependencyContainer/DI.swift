@@ -120,6 +120,8 @@ public enum DI {
         public init<ServiceContainer>(_ key: Key<ServiceContainer>, _ keyPath: KeyPath<ServiceContainer, Service>) {
             _service = .init(wrappedValue: Container.resolveObservable(key).observed[keyPath: keyPath])
         }
+        
+        public var projectedValue: ObservedObject<Service>.Wrapper { _service.projectedValue }
     }
     
     ///Property wrapper with a refernce to an 'any ObservableObject' service in DI.Container.
