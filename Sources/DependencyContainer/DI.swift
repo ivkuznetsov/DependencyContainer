@@ -47,12 +47,20 @@ public enum DI {
     ///Property wrapper with a reference to a service in DI.Container.
     ///This wrapper doesn't increaze the size of a struct.
     @propertyWrapper
-    public struct Static<Service> { // size = 0
+    public struct Static<Service> {
         
         public var wrappedValue: Service { Container.resolve(.init()) }
+        private let key: Key<Service>
         
         public init(_ key: Key<Service>) {
+            self.key = key
             _ = wrappedValue // validate existance
+        }
+        
+        public var projectedValue: Static<Service> { self }
+        
+        public func replace(_ service: Service) {
+            Container.register(key, service)
         }
     }
     
@@ -132,17 +140,31 @@ public enum DI {
         }
         
         private var value: Service
+        private let key: Key<Service>?
         
         public init(wrappedValue value: Service) {
+            key = nil
             self.value = value
         }
         
         public init<ServiceContainer>(_ key: Key<ServiceContainer>, _ keyPath: KeyPath<ServiceContainer, Service>) {
+            self.key = nil
             value = Container.resolveObservable(key).observed[keyPath: keyPath]
         }
         
         public init(_ key: Key<Service>) {
+            self.key = key
             value = Container.resolve(key)
+        }
+        
+        public var projectedValue: RePublished<Service> { self }
+        
+        public func replace(_ service: Service) {
+            if let key = projectedValue.key {
+                Container.register(key, service)
+            }
+            observer = nil
+            value = service
         }
     }
 }
