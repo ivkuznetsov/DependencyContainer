@@ -49,7 +49,7 @@ public enum DI {
     @propertyWrapper
     public struct Static<Service> {
         
-        public var wrappedValue: Service { Container.resolve(.init()) }
+        public var wrappedValue: Service { Container.resolve(key) }
         private let key: Key<Service>
         
         public init(_ key: Key<Service>) {

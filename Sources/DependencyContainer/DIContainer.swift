@@ -11,7 +11,7 @@ extension DI {
     
     ///A key for storing services in DI.Container
     public struct Key<Value>: Hashable {
-        private let id = ObjectIdentifier(Value.self)
+        private let id = UUID()
         
         public init() {}
     }
