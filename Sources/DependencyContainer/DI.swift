@@ -31,8 +31,7 @@ import Combine
 ///Use in class:
 ///
 ///     class SomeStateObject: ObservableObject {
-///         @DI.Static(DI.network) var network
-///         @DI.StaticPath(DI.network, \.tokenUpdater) var tokenUpdater
+///         @DI.Static(DI.network, \.tokenUpdater) var tokenUpdater
 ///         @DI.RePublished(DI.settings) var settings
 ///     }
 ///
@@ -49,34 +48,25 @@ public enum DI {
     @propertyWrapper
     public struct Static<Service> {
         
-        public var wrappedValue: Service { Container.resolve(key) }
-        private let key: Key<Service>
+        public let wrappedValue: Service
+        private let key: Key<Service>?
         
         public init(_ key: Key<Service>) {
             self.key = key
-            _ = wrappedValue // validate existance
+            wrappedValue = Container.resolve(key)
+        }
+        
+        public init<ServiceContainer>(_ key: Key<ServiceContainer>, _ keyPath: KeyPath<ServiceContainer, Service>) {
+            self.key = nil
+            wrappedValue = Container.resolveObservable(key).observed[keyPath: keyPath]
         }
         
         public var projectedValue: Static<Service> { self }
         
         public func replace(_ service: Service) {
-            Container.register(key, service)
-        }
-    }
-    
-    ///Property wrapper with a reference to a sub-service of some service in DI.Container defined by a keyPath.
-    ///The size is 8 bytes.
-    @propertyWrapper
-    public struct StaticPath<Service> {
-        
-        public let wrappedValue: Service
-        
-        public init(wrappedValue value: Service) {
-            wrappedValue = value
-        }
-        
-        public init<ServiceContainer>(_ key: Key<ServiceContainer>, _ keyPath: KeyPath<ServiceContainer, Service>) {
-            wrappedValue = Container.resolveObservable(key).observed[keyPath: keyPath]
+            if let key {
+                Container.register(key, service)
+            }
         }
     }
     

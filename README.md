@@ -26,8 +26,7 @@ extension DI.Container {
 Use in class:
 ```swift
 class SomeStateObject: ObservableObject {
-    @DI.Static(DI.network) var network
-    @DI.StaticPath(DI.network, \.tokenUpdater) var tokenUpdater
+    @DI.Static(DI.network, \.tokenUpdater) var network
     @DI.RePublished(DI.settings) var settings
 }
 ```
