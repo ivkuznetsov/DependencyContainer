@@ -41,10 +41,11 @@ import Combine
 ///         @DI.Observed(DI.dataManager) var data
 ///     }
     
+///A namespace for the dependency injection container.
 public enum DI {
 
-    ///Property wrapper with a reference to a service in DI.Container.
-    ///This wrapper doesn't increaze the size of a struct.
+    ///A property wrapper that provides a reference to a service in DI.Container.
+    ///This wrapper does not increase the size of a struct.
     @propertyWrapper
     public struct Static<Service> {
         
@@ -70,10 +71,8 @@ public enum DI {
         }
     }
     
-    ///Property wrapper with a reference to an 'any ObservableObject' service in DI.Container.
-    ///It should be used only in SwiftUI view. The change in service triggers the view update.
-    ///The sub-service can be referenced by using a KeyPath.
-    ///The size is 17 bytes.
+    ///A property wrapper that provides a reference to an 'any ObservableObject' service in DI.Container.
+    ///It should be used only in SwiftUI views. Changes in service trigger view updates.
     @propertyWrapper
     public struct Observed<Service>: DynamicProperty {
         
@@ -96,8 +95,8 @@ public enum DI {
         public var projectedValue: Binding<Service> { $wrapper.observed }
     }
     
-    ///Property wrapper with a refernce to an 'any ObservableObject' service in DI.Container.
-    ///It should be used in another 'ObservableObject'. An update of the service triggers objectWillChange of enoclosing instance.
+    ///A property wrapper that provides a reference to an 'any ObservableObject' service in DI.Container.
+    ///It should be used in another 'ObservableObject'. Updates of the service trigger objectWillChange of the enclosing instance.
     ///The sub-service can be referenced by using a KeyPath.
     @propertyWrapper
     public final class RePublished<Service> {
@@ -177,6 +176,7 @@ public final class ObservableObjectWrapper<Value>: ObservableObject {
 
 private extension ObservableObject {
     
+    ///Helper function to subscribe to objectWillChange.
     func sink(_ closure: @escaping ()->()) -> AnyCancellable {
         objectWillChange.sink { _ in closure() }
     }
