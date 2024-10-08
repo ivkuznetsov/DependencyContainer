@@ -60,10 +60,6 @@ struct SomeView: View {
 }
 ```
 
-## Installation
-
-To use the DependencyContainer in your project, simply add the relevant files to your Swift project and call DI.Container.setup() at the start of your application (typically in your App's init or application(_:didFinishLaunchingWithOptions:) method).
-
 ## Meta
 
 Ilya Kuznetsov – i.v.kuznecov@gmail.com
