@@ -41,6 +41,8 @@ import Combine
 ///         @DI.Observed(DI.dataManager) var data
 ///     }
     
+extension DI.Static: Sendable where Service: Sendable { }
+
 ///A namespace for the dependency injection container.
 public enum DI {
 

@@ -10,7 +10,7 @@ import Foundation
 extension DI {
     
     ///A key for storing services in the `DI.Container`.
-    public struct Key<Value>: Hashable {
+    public struct Key<Value>: Hashable, Sendable {
         private let id = UUID()
         
         public init() {}
