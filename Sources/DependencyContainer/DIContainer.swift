@@ -40,7 +40,7 @@ extension DI {
         public static func register<Service>(_ key: Key<Service>, _ make: ()->Service) {
             let service = make()
             pthread_rwlock_wrlock(&current.lock)
-            current.storage[key.hashValue] = ObservableObjectWrapper(service)
+            current.storage[key.hashValue] = service
             pthread_rwlock_unlock(&current.lock)
         }
         
@@ -52,21 +52,16 @@ extension DI {
             register(key, { service })
         }
         
-        /// Resolves a service as an `ObservableObjectWrapper` for the specified key.
-        /// - Parameter key: The key used to identify the service.
-        /// - Returns: An `ObservableObjectWrapper` containing the requested service.
-        public static func resolveObservable<Service>(_ key: Key<Service>) -> ObservableObjectWrapper<Service> {
-            pthread_rwlock_rdlock(&current.lock)
-            let result = current.storage[key.hashValue] as! ObservableObjectWrapper<Service>
-            pthread_rwlock_unlock(&current.lock)
-            return result
-        }
-        
         /// Resolves a service for the specified key.
         /// - Parameter key: The key used to identify the service.
         /// - Returns: The requested service instance.
         public static func resolve<Service>(_ key: Key<Service>) -> Service {
-            resolveObservable(key).observed
+            pthread_rwlock_rdlock(&current.lock)
+            guard let result = current.storage[key.hashValue] as? Service else {
+                fatalError("The service \(type(of: Service.self)) is not registered")
+            }
+            pthread_rwlock_unlock(&current.lock)
+            return result
         }
         
         deinit {

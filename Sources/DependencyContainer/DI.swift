@@ -40,37 +40,29 @@ import Combine
 ///     struct SomeView: View {
 ///         @DI.Observed(DI.dataManager) var data
 ///     }
-    
-extension DI.Static: Sendable where Service: Sendable { }
 
 ///A namespace for the dependency injection container.
 public enum DI {
 
     ///A property wrapper that provides a reference to a service in DI.Container.
-    ///This wrapper does not increase the size of a struct.
     @propertyWrapper
     public struct Static<Service> {
         
         public let wrappedValue: Service
-        private let key: Key<Service>?
+        
+        public init(value: Service) {
+            self.wrappedValue = value
+        }
         
         public init(_ key: Key<Service>) {
-            self.key = key
             wrappedValue = Container.resolve(key)
         }
         
         public init<ServiceContainer>(_ key: Key<ServiceContainer>, _ keyPath: KeyPath<ServiceContainer, Service>) {
-            self.key = nil
-            wrappedValue = Container.resolveObservable(key).observed[keyPath: keyPath]
+            wrappedValue = Container.resolve(key)[keyPath: keyPath]
         }
         
         public var projectedValue: Static<Service> { self }
-        
-        public func replace(_ service: Service) {
-            if let key {
-                Container.register(key, service)
-            }
-        }
     }
     
     ///A property wrapper that provides a reference to an 'any ObservableObject' service in DI.Container.
@@ -78,23 +70,35 @@ public enum DI {
     @propertyWrapper
     public struct Observed<Service>: DynamicProperty {
         
-        @StateObject private var wrapper: ObservableObjectWrapper<Service>
+        @dynamicMemberLookup public struct Wrapper {
+
+            let serivce: Service
+            
+            public subscript<Subject>(dynamicMember keyPath: ReferenceWritableKeyPath<Service, Subject>) -> Binding<Subject> {
+                .init(get: { serivce[keyPath: keyPath] },
+                      set: { serivce[keyPath: keyPath] = $0 })
+            }
+        }
         
-        public var wrappedValue: Service { wrapper.observed }
+        @StateObject private var object: AnyObservableObject
         
-        public init(wrappedValue value: Service) {
-            _wrapper = .init(wrappedValue: .init(value))
+        public var wrappedValue: Service { object.base as! Service }
+        
+        public init(value: Service) {
+            _object = .init(wrappedValue: .init(baseOrFail: value))
         }
         
         public init(_ key: Key<Service>) {
-            _wrapper = .init(wrappedValue: Container.resolveObservable(key))
+            _object = .init(wrappedValue: .init(baseOrFail: Container.resolve(key)))
         }
         
         public init<ServiceContainer>(_ key: Key<ServiceContainer>, _ keyPath: KeyPath<ServiceContainer, Service>) {
-            _wrapper = .init(wrappedValue: .init(Container.resolveObservable(key).observed[keyPath: keyPath]))
+            _object = .init(wrappedValue: .init(baseOrFail: Container.resolve(key)[keyPath: keyPath]))
         }
         
-        public var projectedValue: Binding<Service> { $wrapper.observed }
+        public var projectedValue: Wrapper {
+            Wrapper(serivce: wrappedValue)
+        }
     }
     
     ///A property wrapper that provides a reference to an 'any ObservableObject' service in DI.Container.
@@ -111,67 +115,67 @@ public enum DI {
                 if instance[keyPath: storageKeyPath].observer == nil {
                     instance[keyPath: storageKeyPath].setupObserver(instance)
                 }
-                return instance[keyPath: storageKeyPath].value
+                return instance[keyPath: storageKeyPath].value.base as! Service
             }
             set { }
         }
         
         private func setupObserver<T: ObservableObject>(_ instance: T) {
-            observer = ((value as? any ObservableObject)?.sink { [weak instance] in
+            observer = value.sink { [weak instance] in
                 (instance?.objectWillChange as? any Publisher as? ObservableObjectPublisher)?.send()
-            })
+            }
         }
 
-        private var observer: AnyCancellable?
-        
-        @available(*, unavailable, message: "This property wrapper can only be applied to classes")
+        @available(*, unavailable, message: "This property wrapper can only be applied to ObservableObject")
         public var wrappedValue: Service {
             get { fatalError() }
             set { fatalError() }
         }
         
-        private var value: Service
-        private let key: Key<Service>?
+        private let value: AnyObservableObject
+        private var observer: AnyCancellable?
         
-        public init(wrappedValue value: Service) {
-            key = nil
-            self.value = value
+        public init(value: Service) {
+            self.value = .init(baseOrFail: value)
         }
         
         public init<ServiceContainer>(_ key: Key<ServiceContainer>, _ keyPath: KeyPath<ServiceContainer, Service>) {
-            self.key = nil
-            value = Container.resolveObservable(key).observed[keyPath: keyPath]
+            value = .init(baseOrFail: Container.resolve(key)[keyPath: keyPath])
         }
         
         public init(_ key: Key<Service>) {
-            self.key = key
-            value = Container.resolve(key)
+            value = .init(baseOrFail: Container.resolve(key))
         }
         
         public var projectedValue: RePublished<Service> { self }
+    }
+}
+
+extension DI.Static: Sendable where Service: Sendable { }
+
+///ObservableObject wrapper with type erased input. An update of the contained instance triggers objectWillChange of this wrapper.
+///This is convenient for using protocol types.
+public final class AnyObservableObject: ObservableObject {
+    
+    public let base: any ObservableObject
+    private var observer: AnyCancellable?
+    
+    public init(_ base: any ObservableObject) {
+        self.base = base
         
-        public func replace(_ service: Service) {
-            if let key = projectedValue.key {
-                Container.register(key, service)
-            }
-            observer = nil
-            value = service
+        observer = base.sink { [weak self] in
+            self?.objectWillChange.send()
         }
     }
 }
 
-///ObservableObject wrapper with type erased input. An update of the contained instance triggers objectWillChange of this wrapper.
-///This is convenient for using protocol types.
-public final class ObservableObjectWrapper<Value>: ObservableObject {
+extension AnyObservableObject {
     
-    public fileprivate(set) var observed: Value
-    private var observer: AnyCancellable?
-    
-    public init(_ observable: Value) {
-        self.observed = observable
-        
-        observer = (observable as? any ObservableObject)?.sink { [weak self] in
-            self?.objectWillChange.send()
+    convenience init(baseOrFail base: Any) {
+        if let base = base as? any ObservableObject {
+            self.init(base)
+        } else {
+            fatalError("\(type(of: base)) required to be an ObservableObject")
         }
     }
 }
